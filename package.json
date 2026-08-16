@@ -2,7 +2,7 @@
   "name": "@hollowpoint-io/medusa-plugin-media-library",
   "version": "0.1.0",
   "description": "Browsable media library over Medusa v2's File Module. Registry-only deletes.",
-  "author": "Hollowpoint <https://hollowpoint.io>",
+  "author": "Billy Mahmood <https://hollowpoint.io>",
   "license": "MIT",
   "homepage": "https://hollowpoint.io",
   "repository": {

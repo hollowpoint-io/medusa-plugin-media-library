@@ -2,7 +2,7 @@
 
 A browsable media library for [Medusa](https://medusajs.com) v2. The File Module uploads to storage but keeps no record — this plugin is that record.
 
-Maintained by [Hollowpoint](https://hollowpoint.io). MIT licensed.
+Authored by Billy Mahmood. Maintained by [Hollowpoint](https://hollowpoint.io). MIT licensed.
 
 ## Install
 
