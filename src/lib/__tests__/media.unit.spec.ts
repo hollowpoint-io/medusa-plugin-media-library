@@ -39,6 +39,24 @@ describe("performUpsertMediaAssets", () => {
     expect(result).toMatchObject({ created: 1, updated: 1 })
     expect(result.createdIds).toEqual(["new_0"])
   })
+  it("stores video mime_type and folder metadata", async () => {
+    const service = mockWriter([])
+    const result = await performUpsertMediaAssets(service, [
+      {
+        url: "https://cdn.example.com/roast.mp4",
+        filename: "roast.mp4",
+        mime_type: "video/mp4",
+        folder: "coffees/huila",
+        role: "product_video",
+      },
+    ])
+    expect(result).toMatchObject({ created: 1, updated: 0 })
+    expect(service.created[0]).toMatchObject({
+      mime_type: "video/mp4",
+      folder: "coffees/huila",
+      role: "product_video",
+    })
+  })
 })
 
 describe("performDeleteMediaAsset", () => {

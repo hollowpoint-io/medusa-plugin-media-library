@@ -3,6 +3,7 @@ export type MediaAssetInput = {
   filename: string
   mime_type?: string | null
   role?: string | null
+  folder?: string | null
   source?: "theme" | "content" | "upload"
   alt?: string | null
 }

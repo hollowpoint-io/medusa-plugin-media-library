@@ -9,7 +9,7 @@ import type { MediaAssetInput } from "../../../workflows/steps/upsert-media-asse
 
 /**
  * GET /admin/media — list the media library.
- * Optional filters: ?role=, ?source=, ?limit=, ?offset=.
+ * Optional filters: ?role=, ?folder=, ?source=, ?mime_prefix=, ?limit=, ?offset=.
  */
 export async function GET(
   req: AuthenticatedMedusaRequest,
@@ -17,10 +17,15 @@ export async function GET(
 ) {
   const service = req.scope.resolve<MediaModuleService>(MEDIA_MODULE)
 
-  const { role, source, limit, offset } = req.query as Record<string, string>
+  const { role, folder, source, mime_prefix, limit, offset } =
+    req.query as Record<string, string>
   const filters: Record<string, unknown> = {}
   if (role) filters.role = role
+  if (folder) filters.folder = folder
   if (source) filters.source = source
+  if (mime_prefix) {
+    filters.mime_type = { $ilike: `${mime_prefix}%` }
+  }
 
   const take = limit ? parseInt(limit, 10) : 200
   const skip = offset ? parseInt(offset, 10) : 0

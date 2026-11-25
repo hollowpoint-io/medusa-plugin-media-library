@@ -17,6 +17,7 @@ const MediaAsset = model.define("media_asset", {
   mime_type: model.text().nullable(),
 
   role: model.text().nullable(),
+  folder: model.text().nullable(),
   source: model.enum(["theme", "content", "upload"]).default("upload"),
   alt: model.text().nullable(),
 })

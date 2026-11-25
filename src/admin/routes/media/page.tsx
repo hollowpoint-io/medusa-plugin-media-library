@@ -26,8 +26,24 @@ type MediaAsset = {
   filename: string
   mime_type: string | null
   role: string | null
+  folder: string | null
   source: "theme" | "content" | "upload"
   alt: string | null
+}
+
+function isVideoAsset(asset: Pick<MediaAsset, "mime_type" | "filename" | "url">): boolean {
+  const mime = (asset.mime_type || "").toLowerCase()
+  const target = `${asset.filename} ${asset.url}`.toLowerCase()
+  return (
+    mime.startsWith("video/") ||
+    /\.(mp4|webm|mov|m4v|ogg)(\?|#|$)/.test(target)
+  )
+}
+
+function isModelAsset(asset: Pick<MediaAsset, "mime_type" | "filename" | "url">): boolean {
+  const mime = (asset.mime_type || "").toLowerCase()
+  const target = `${asset.filename} ${asset.url}`.toLowerCase()
+  return mime.startsWith("model/") || /\.(glb|gltf)(\?|#|$)/.test(target)
 }
 
 type MediaResponse = { media_assets: MediaAsset[]; count: number }
@@ -41,9 +57,12 @@ const sourceColor: Record<string, "blue" | "green" | "purple" | "grey"> = {
 const MediaLibraryPage = () => {
   const queryClient = useQueryClient()
   const [roleFilter, setRoleFilter] = useState<string>("all")
+  const [folderFilter, setFolderFilter] = useState<string>("all")
+  const [mimeFilter, setMimeFilter] = useState<string>("all")
   const [open, setOpen] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [uploadRole, setUploadRole] = useState("")
+  const [uploadFolder, setUploadFolder] = useState("")
   const [editing, setEditing] = useState<MediaAsset | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<MediaAsset | null>(null)
 
@@ -70,8 +89,24 @@ const MediaLibraryPage = () => {
     return Array.from(set).sort()
   }, [assets])
 
-  const visible =
-    roleFilter === "all" ? assets : assets.filter((a) => a.role === roleFilter)
+  const folders = useMemo(() => {
+    const set = new Set<string>()
+    for (const a of assets) {
+      if (a.folder) {
+        set.add(a.folder)
+      }
+    }
+    return Array.from(set).sort()
+  }, [assets])
+
+  const visible = assets.filter((a) => {
+    if (roleFilter !== "all" && a.role !== roleFilter) return false
+    if (folderFilter !== "all" && a.folder !== folderFilter) return false
+    if (mimeFilter === "video" && !isVideoAsset(a)) return false
+    if (mimeFilter === "model" && !isModelAsset(a)) return false
+    if (mimeFilter === "image" && (isVideoAsset(a) || isModelAsset(a))) return false
+    return true
+  })
 
   const upload = useMutation({
     mutationFn: async () => {
@@ -89,6 +124,7 @@ const MediaLibraryPage = () => {
               filename: file.name,
               mime_type: file.type || null,
               role: uploadRole.trim() || null,
+              folder: uploadFolder.trim() || null,
               source: "upload",
             },
           ],
@@ -140,8 +176,36 @@ const MediaLibraryPage = () => {
                 : `${assets.length} assets hosted on Medusa storage`}
           </Text>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-48">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="w-36">
+            <Select value={mimeFilter} onValueChange={setMimeFilter}>
+              <Select.Trigger>
+                <Select.Value placeholder="All types" />
+              </Select.Trigger>
+              <Select.Content>
+                <Select.Item value="all">All types</Select.Item>
+                <Select.Item value="image">Images</Select.Item>
+                <Select.Item value="video">Videos</Select.Item>
+                <Select.Item value="model">3D Models</Select.Item>
+              </Select.Content>
+            </Select>
+          </div>
+          <div className="w-40">
+            <Select value={folderFilter} onValueChange={setFolderFilter}>
+              <Select.Trigger>
+                <Select.Value placeholder="All folders" />
+              </Select.Trigger>
+              <Select.Content>
+                <Select.Item value="all">All folders</Select.Item>
+                {folders.map((f) => (
+                  <Select.Item key={f} value={f}>
+                    {f}
+                  </Select.Item>
+                ))}
+              </Select.Content>
+            </Select>
+          </div>
+          <div className="w-40">
             <Select value={roleFilter} onValueChange={setRoleFilter}>
               <Select.Trigger>
                 <Select.Value placeholder="Filter by role" />
@@ -221,12 +285,26 @@ const MediaLibraryPage = () => {
                 </DropdownMenu>
               </div>
               <div className="flex h-32 items-center justify-center overflow-hidden rounded-md bg-ui-bg-base">
-                <img
-                  src={a.url}
-                  alt={a.alt ?? a.filename}
-                  className="max-h-32 max-w-full object-contain"
-                  loading="lazy"
-                />
+                {isVideoAsset(a) ? (
+                  <video
+                    src={a.url}
+                    controls
+                    muted
+                    playsInline
+                    className="max-h-32 max-w-full object-contain"
+                  />
+                ) : isModelAsset(a) ? (
+                  <Badge size="small" color="blue">
+                    3D Model (.GLB/.GLTF)
+                  </Badge>
+                ) : (
+                  <img
+                    src={a.url}
+                    alt={a.alt ?? a.filename}
+                    className="max-h-32 max-w-full object-contain"
+                    loading="lazy"
+                  />
+                )}
               </div>
               <Text
                 size="small"
@@ -238,6 +316,11 @@ const MediaLibraryPage = () => {
                 {a.filename}
               </Text>
               <div className="flex flex-wrap items-center gap-1">
+                {a.folder && (
+                  <Badge size="2xsmall" color="green">
+                    {a.folder}
+                  </Badge>
+                )}
                 {a.role && <Badge size="2xsmall">{a.role}</Badge>}
                 <Badge size="2xsmall" color={sourceColor[a.source] ?? "grey"}>
                   {a.source}
@@ -282,12 +365,20 @@ const MediaLibraryPage = () => {
             <FocusModal.Body className="flex-1 overflow-auto">
               <div className="mx-auto flex w-full max-w-lg flex-col gap-y-4 py-8">
                 <div className="flex flex-col gap-y-2">
-                  <Label>Image file</Label>
+                  <Label>Media file (Image, Video, or 3D .GLB/.GLTF)</Label>
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/*,video/*,.glb,.gltf,model/gltf-binary"
                     onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                     className="text-ui-fg-base text-sm"
+                  />
+                </div>
+                <div className="flex flex-col gap-y-2">
+                  <Label>Folder (optional)</Label>
+                  <Input
+                    placeholder="e.g. coffees/huila, stories, heroes"
+                    value={uploadFolder}
+                    onChange={(e) => setUploadFolder(e.target.value)}
                   />
                 </div>
                 <div className="flex flex-col gap-y-2">
@@ -349,12 +440,14 @@ const EditMediaDrawer = ({
   const queryClient = useQueryClient()
   const [alt, setAlt] = useState("")
   const [role, setRole] = useState("")
+  const [folder, setFolder] = useState("")
   const [customRole, setCustomRole] = useState(false)
 
   useEffect(() => {
     if (asset) {
       setAlt(asset.alt ?? "")
       setRole(asset.role ?? "")
+      setFolder(asset.folder ?? "")
       setCustomRole(!!asset.role && !roles.includes(asset.role))
     }
   }, [asset])
@@ -374,6 +467,7 @@ const EditMediaDrawer = ({
               mime_type: asset.mime_type,
               source: asset.source,
               role: role.trim() || null,
+              folder: folder.trim() || null,
               alt: alt.trim() || null,
             },
           ],
@@ -398,10 +492,32 @@ const EditMediaDrawer = ({
           {asset && (
             <>
               <div className="flex h-32 items-center justify-center overflow-hidden rounded-md border border-ui-border-base bg-ui-bg-subtle">
-                <img
-                  src={asset.url}
-                  alt=""
-                  className="max-h-32 max-w-full object-contain"
+                {isVideoAsset(asset) ? (
+                  <video
+                    src={asset.url}
+                    controls
+                    muted
+                    playsInline
+                    className="max-h-32 max-w-full object-contain"
+                  />
+                ) : isModelAsset(asset) ? (
+                  <Badge size="small" color="blue">
+                    3D Model (.GLB/.GLTF)
+                  </Badge>
+                ) : (
+                  <img
+                    src={asset.url}
+                    alt=""
+                    className="max-h-32 max-w-full object-contain"
+                  />
+                )}
+              </div>
+              <div className="flex flex-col gap-y-2">
+                <Label>Folder</Label>
+                <Input
+                  value={folder}
+                  onChange={(e) => setFolder(e.target.value)}
+                  placeholder="e.g. coffees/huila"
                 />
               </div>
               <Text size="small" className="text-ui-fg-subtle" title={asset.filename}>
